@@ -51,3 +51,17 @@ def health_score(speed, rpm, load):
     return max(score, 0)
 
 
+def to_decimal(value):
+    """Safely convert numeric input to Decimal for DynamoDB storage."""
+    try:
+        return Decimal(str(float(value)))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError(f"Invalid numeric value: {value!r}")
+
+
+def normalize_timestamp(raw_ts):
+
+    ts = int(raw_ts)
+    if ts > MS_THRESHOLD:
+        ts //= 1000
+    return ts
