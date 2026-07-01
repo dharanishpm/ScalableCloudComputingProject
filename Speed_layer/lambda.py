@@ -65,3 +65,24 @@ def normalize_timestamp(raw_ts):
     if ts > MS_THRESHOLD:
         ts //= 1000
     return ts
+
+
+def parse_record(kinesis_record):
+    """Decode + validate a single Kinesis record. Raises ValueError on bad data."""
+    raw = base64.b64decode(kinesis_record["kinesis"]["data"])
+    payload = json.loads(raw)
+
+    missing = [f for f in REQUIRED_FIELDS if f not in payload]
+    if missing:
+        raise ValueError(f"Missing fields: {missing}")
+
+    return {
+        "vehicleId": str(payload["vehicleId"]),
+        "timestamp": normalize_timestamp(payload["timestamp"]),
+        "speed": to_decimal(payload["speed"]),
+        "rpm": to_decimal(payload["rpm"]),
+        "engineLoad": to_decimal(payload["engineLoad"]),
+        "maf": to_decimal(payload["maf"]),
+        "latitude": to_decimal(payload["latitude"]),
+        "longitude": to_decimal(payload["longitude"]),
+    }
