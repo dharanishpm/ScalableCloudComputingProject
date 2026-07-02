@@ -86,3 +86,8 @@ def parse_record(kinesis_record):
         "latitude": to_decimal(payload["latitude"]),
         "longitude": to_decimal(payload["longitude"]),
     }
+
+
+def bucket_key(timestamp):
+    return f"Bucket#{timestamp // BUCKET_SECONDS}"
+
