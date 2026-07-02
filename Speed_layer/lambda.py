@@ -135,3 +135,40 @@ def write_telemetry_and_alerts(item):
 
     return telemetry_item, health
 
+
+def update_bucket_aggregate(item, health, now):
+    """
+    Atomically fold one record into its 1-minute tumbling-window aggregate.
+    ADD is safe under concurrent writes from parallel shard invocations.
+    """
+    key = {"metricName": bucket_key(item["timestamp"])}
+    speed = item["speed"]
+    rpm = item["rpm"]
+    load = item["engineLoad"]
+
+    is_active = speed > 0
+    is_high_rpm = rpm > RPM_LIMIT
+    is_high_load = load > LOAD_LIMIT
+
+    update_expr_parts = [
+        "ADD speedSum :speed, speedCount :one, healthSum :health, "
+        "healthCount :one, highRpmCount :hrpm, highLoadCount :hload, "
+        "rpmSum :rpm, loadSum :load"
+    ]
+    values = {
+        ":speed": speed,
+        ":one": 1,
+        ":health": Decimal(str(health)),
+        ":hrpm": 1 if is_high_rpm else 0,
+        ":hload": 1 if is_high_load else 0,
+        # NOTE: rpmSum / loadSum were previously missing entirely, which is
+        # why rolling average RPM / engine load could never be computed --
+        # only the *count* of high-RPM/high-load events existed, never a
+        # running sum to average. speedCount doubles as the shared
+        # denominator for these too, since every record contributes exactly
+        # one unit to every sum in the same update.
+        ":rpm": rpm,
+        ":load": load,
+    }
+
+
