@@ -91,3 +91,47 @@ def parse_record(kinesis_record):
 def bucket_key(timestamp):
     return f"Bucket#{timestamp // BUCKET_SECONDS}"
 
+
+def write_telemetry_and_alerts(item):
+    """Write one telemetry row + any alert rows it triggers, batched."""
+    now = int(time.time())
+
+    health = health_score(
+        float(item["speed"]), float(item["rpm"]), float(item["engineLoad"])
+    )
+
+    telemetry_item = {
+        "vehicleId": item["vehicleId"],
+        "timestamp": str(item["timestamp"]),
+        "speed": item["speed"],
+        "rpm": item["rpm"],
+        "engineLoad": item["engineLoad"],
+        "maf": item["maf"],
+        "latitude": item["latitude"],
+        "longitude": item["longitude"],
+        "healthScore": Decimal(str(health)),
+        "expiresAt": now + TELEMETRY_TTL_SECONDS,
+    }
+
+    alerts = []
+    if item["speed"] > SPEED_LIMIT:
+        alerts.append("SPEEDING")
+    if item["rpm"] > RPM_LIMIT:
+        alerts.append("HIGH_RPM")
+    if item["engineLoad"] > LOAD_LIMIT:
+        alerts.append("HIGH_ENGINE_LOAD")
+
+    with telemetry_table.batch_writer() as batch:
+        batch.put_item(Item=telemetry_item)
+
+    if alerts:
+        with alerts_table.batch_writer() as batch:
+            for alert in alerts:
+                batch.put_item(Item={
+                    "vehicleId": item["vehicleId"],
+                    "timestamp": str(item["timestamp"]),
+                    "alert": alert,
+                })
+
+    return telemetry_item, health
+
