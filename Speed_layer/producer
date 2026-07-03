@@ -1,0 +1,24 @@
+import json
+import time
+import random
+import boto3
+import pandas as pd
+from datetime import datetime
+import os
+from botocore.exceptions import ClientError
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Configuration
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+KINESIS_STREAM_NAME = os.environ.get('KINESIS_STREAM_NAME', 'fleet-stream')
+CSV_FILE = os.environ.get('CSV_FILE', 'vehicle_data.csv')
+SLEEP_INTERVAL = float(os.environ.get('SLEEP_INTERVAL', '1.0'))  # seconds between records
+
+# Initialize Kinesis client
+kinesis_client = boto3.client(
+    'kinesis',
+    region_name=AWS_REGION
+)
