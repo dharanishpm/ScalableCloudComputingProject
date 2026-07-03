@@ -171,4 +171,44 @@ def update_bucket_aggregate(item, health, now):
         ":load": load,
     }
 
+    if is_active:
+        update_expr_parts[0] += ", activeVehicles :veh"
+        values[":veh"] = {item["vehicleId"]}
+
+    update_expr = update_expr_parts[0] + " SET expiresAt = :exp"
+    values[":exp"] = now + BUCKET_TTL_SECONDS
+
+    metrics_table.update_item(
+        Key=key,
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=values,
+    )
+
+    maybe_update_bucket_top_n(key, item["vehicleId"], speed, rpm, load, now)
+
+
+def maybe_update_bucket_top_n(key, vehicle_id, speed, rpm, load, now):
+
+    response = metrics_table.get_item(
+        Key=key, ProjectionExpression="topSpeeds"
+    )
+    current = response.get("Item", {}).get("topSpeeds", [])
+
+    if len(current) >= TOP_N and speed <= min(Decimal(c["speed"]) for c in current):
+        return
+
+    candidates = list(current) + [
+        {"vehicleId": vehicle_id, "speed": speed, "rpm": rpm, "engineLoad": load}
+    ]
+    candidates.sort(key=lambda c: float(c["speed"]), reverse=True)
+    top_n = candidates[:TOP_N]
+
+    metrics_table.update_item(
+        Key=key,
+        UpdateExpression="SET topSpeeds = :t, expiresAt = :exp",
+        ExpressionAttributeValues={
+            ":t": top_n,
+            ":exp": now + BUCKET_TTL_SECONDS,
+        },
+    )
 
