@@ -48,3 +48,33 @@ def generate_health_score(speed, rpm, engine_load):
         health_score -= 10
     
     return max(health_score, 0)
+
+def create_telemetry_record(row):
+    """
+    Create a telemetry record from CSV row with enhanced fields
+    """
+    current_timestamp = int(datetime.now().timestamp())  # FIXED: Use seconds, not milliseconds
+    
+    # Extract base telemetry data
+    vehicle_id = str(row["VehId"])
+    speed = float(row["Vehicle Speed[km/h]"])
+    rpm = float(row["Engine RPM[RPM]"])
+    engine_load = float(row["Absolute Load[%]"])
+    
+    record = {
+        "vehicleId": vehicle_id,
+        "trip": int(row["Trip"]),
+        "timestamp": current_timestamp,  # Use current timestamp for real-time simulation
+        "latitude": float(row["Latitude[deg]"]),
+        "longitude": float(row["Longitude[deg]"]),
+        "speed": speed,
+        "rpm": rpm,
+        "maf": float(row["MAF[g/sec]"]),
+        "engineLoad": engine_load,
+        "healthScore": generate_health_score(speed, rpm, engine_load),
+        "eventType": "telemetry",
+        "source": "fleet-producer"
+    }
+    
+    return record
+    
