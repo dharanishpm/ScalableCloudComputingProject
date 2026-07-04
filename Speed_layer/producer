@@ -22,3 +22,29 @@ kinesis_client = boto3.client(
     'kinesis',
     region_name=AWS_REGION
 )
+
+def generate_health_score(speed, rpm, engine_load):
+    """
+    Calculate vehicle health score based on telemetry data
+    """
+    health_score = 100
+    
+    # Penalize high speed
+    if speed > 120:
+        health_score -= 20
+    elif speed > 100:
+        health_score -= 10
+    
+    # Penalize high RPM
+    if rpm > 5000:
+        health_score -= 30
+    elif rpm > 4000:
+        health_score -= 15
+    
+    # Penalize high engine load
+    if engine_load > 90:
+        health_score -= 20
+    elif engine_load > 75:
+        health_score -= 10
+    
+    return max(health_score, 0)
