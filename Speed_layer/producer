@@ -77,4 +77,23 @@ def create_telemetry_record(row):
     }
     
     return record
-    
+
+def send_to_kinesis(record, stream_name):
+    """
+    Send record to Kinesis Data Stream
+    """
+    try:
+        response = kinesis_client.put_record(
+            StreamName=stream_name,
+            Data=json.dumps(record),
+            PartitionKey=record["vehicleId"]
+        )
+        
+        return response
+        
+    except ClientError as e:
+        print(f"Error sending record to Kinesis: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return None
