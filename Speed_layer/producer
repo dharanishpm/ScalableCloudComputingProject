@@ -97,3 +97,75 @@ def send_to_kinesis(record, stream_name):
     except Exception as e:
         print(f"Unexpected error: {e}")
         return None
+
+def main():
+    """
+    Main function to stream vehicle telemetry data
+    """
+    try:
+        # Load vehicle data
+        print(f"Loading vehicle data from {CSV_FILE}...")
+        df = pd.read_csv(CSV_FILE)
+        print(f"Loaded {len(df)} records for {df['VehId'].nunique()} vehicles")
+        
+        # Verify Kinesis stream exists
+        try:
+            response = kinesis_client.describe_stream(StreamName=KINESIS_STREAM_NAME)
+            stream_status = response['StreamDescription']['StreamStatus']
+            print(f"Kinesis stream '{KINESIS_STREAM_NAME}' status: {stream_status}")
+            
+            if stream_status != 'ACTIVE':
+                print(f"Warning: Stream is not active. Current status: {stream_status}")
+        
+        except ClientError as e:
+            print(f"Error accessing stream '{KINESIS_STREAM_NAME}': {e}")
+            return
+        
+        print(f"Starting data streaming to Kinesis stream: {KINESIS_STREAM_NAME}")
+        print(f"Sleep interval: {SLEEP_INTERVAL} seconds")
+        print("-" * 50)
+        
+        records_sent = 0
+        errors = 0
+        
+        # Stream data continuously
+        while True:
+            for _, row in df.iterrows():
+                # Create telemetry record
+                record = create_telemetry_record(row)
+                
+                # Send to Kinesis
+                response = send_to_kinesis(record, KINESIS_STREAM_NAME)
+                
+                if response:
+                    records_sent += 1
+                    print(f"[{records_sent}] Sent: Vehicle {record['vehicleId']} | "
+                          f"Speed: {record['speed']:.1f} km/h | "
+                          f"RPM: {record['rpm']:.0f} | "
+                          f"Health: {record['healthScore']}")
+                    
+                    # Log successful response details
+                    shard_id = response.get('ShardId', 'Unknown')
+                    sequence_number = response.get('SequenceNumber', 'Unknown')
+                    print(f"    → Shard: {shard_id} | Sequence: {sequence_number[:10]}...")
+                    
+                else:
+                    errors += 1
+                    print(f"[ERROR {errors}] Failed to send record for vehicle {record['vehicleId']}")
+                
+                # Sleep between records
+                time.sleep(SLEEP_INTERVAL)
+        
+    except FileNotFoundError:
+        print(f"Error: CSV file '{CSV_FILE}' not found")
+        print("Please ensure the vehicle data CSV file exists")
+        
+    except KeyboardInterrupt:
+        print(f"\nStreaming stopped by user")
+        print(f"Summary: {records_sent} records sent, {errors} errors")
+        
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+if __name__ == "__main__":
+    main()
