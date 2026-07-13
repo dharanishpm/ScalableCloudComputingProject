@@ -145,4 +145,84 @@ def api_batch():
         }), 500
 
 
+@app.route('/api/alerts')
+def api_alerts():
+    try:
+        logger.info("Alerts API called")
+        
+        if not dynamodb_helper:
+            return jsonify({
+                'alerts': [],
+                'message': 'Using mock data - DynamoDB not available'
+            }), 200
+        
+        # Get recent alerts from DynamoDB
+        alerts = dynamodb_helper.get_recent_alerts(limit=20)
+        
+        logger.info(f"Alerts retrieved: {len(alerts)} alerts")
+        return jsonify({'alerts': alerts}), 200
+        
+    except Exception as e:
+        logger.error(f"Error in alerts API: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve alerts',
+            'message': str(e),
+            'alerts': []
+        }), 500
 
+
+@app.route('/api/vehicle/<vehicle_id>')
+def api_vehicle(vehicle_id):
+    try:
+        logger.info(f"Vehicle API called for {vehicle_id}")
+        
+        if not athena_helper:
+            return jsonify({
+                'vehicleId': vehicle_id,
+                'avgSpeed': 65.5,
+                'maxSpeed': 85.2,
+                'avgRPM': 2500,
+                'maxRPM': 3200,
+                'message': 'Using mock data - Athena not available'
+            }), 200
+        
+        # Get vehicle data from Athena (historical)
+        vehicle_data = athena_helper.get_vehicle_stats(vehicle_id)
+        
+        if not vehicle_data:
+            return jsonify({
+                'error': 'Vehicle not found',
+                'message': f'No data found for vehicle {vehicle_id}'
+            }), 404
+        
+        logger.info(f"Vehicle data retrieved for {vehicle_id}")
+        return jsonify(vehicle_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error in vehicle API: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve vehicle data',
+            'message': str(e)
+        }), 500
+
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors"""
+    return jsonify({'error': 'Not found'}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    return jsonify({'error': 'Internal server error'}), 500
+
+
+if __name__ == '__main__':
+    # Run the Flask application
+    logger.info("Starting FleetPulse Dashboard")
+    app.run(
+        host='0.0.0.0',
+        port=int(os.environ.get('PORT', 5000)),
+        debug=app.config.get('DEBUG', False)
+    )
