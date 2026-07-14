@@ -6,7 +6,6 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 # Initialize Flask application first
 app = Flask(__name__)
 
@@ -52,3 +51,73 @@ def health_check():
         'dynamodb_available': dynamodb_helper is not None,
         'athena_available': athena_helper is not None
     }), 200
+
+
+@app.route('/')
+def index():
+    """
+    Render the main dashboard page
+    
+    Returns:
+        HTML: Rendered dashboard template
+    """
+    logger.info("Dashboard page accessed")
+    try:
+        refresh_interval = getattr(app.config, 'REFRESH_INTERVAL', 5000)
+        return render_template('dashboard.html', refresh_interval=refresh_interval)
+    except Exception as e:
+        logger.error(f"Error rendering dashboard: {e}")
+        return f"<h1>Fleet Dashboard</h1><p>Service starting up...</p><p>Error: {e}</p>", 200
+
+
+@app.route('/api/live')
+def api_live():
+    """
+    API endpoint for live/real-time data from DynamoDB
+    Returns fleet summary and current vehicle metrics
+    """
+    try:
+        logger.info("Live API called")
+        
+        if not dynamodb_helper:
+            return jsonify({
+                'rollingAverageSpeed': 65.5,
+                'rollingAverageRPM': 2500,
+                'rollingAverageEngineLoad': 45.0,
+                'fleetHealth': 85,
+                'activeVehicles': 12,
+                'highRPMCount': 2,
+                'highEngineLoadCount': 1,
+                'top5Vehicles': [
+                    {'vehicleId': 'V001', 'speed': 75, 'rpm': 2800, 'engineLoad': 55},
+                    {'vehicleId': 'V002', 'speed': 68, 'rpm': 2600, 'engineLoad': 48},
+                    {'vehicleId': 'V003', 'speed': 62, 'rpm': 2400, 'engineLoad': 42}
+                ],
+                'message': 'Using mock data - DynamoDB not available'
+            }), 200
+        
+        # Get speed layer data from DynamoDB
+        fleet_summary = dynamodb_helper.get_fleet_summary()
+        
+        response_data = {
+            'rollingAverageSpeed': fleet_summary.get('rollingAverageSpeed', 0),
+            'rollingAverageRPM': fleet_summary.get('rollingAverageRPM', 0),
+            'rollingAverageEngineLoad': fleet_summary.get('rollingAverageEngineLoad', 0),
+            'fleetHealth': fleet_summary.get('fleetHealth', 0),
+            'activeVehicles': fleet_summary.get('activeVehicles', 0),
+            'highRPMCount': fleet_summary.get('highRPMCount', 0),
+            'highEngineLoadCount': fleet_summary.get('highEngineLoadCount', 0),
+            'top5Vehicles': fleet_summary.get('top5Vehicles', [])
+        }
+        
+        logger.info("Live data retrieved successfully")
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error in live API: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve live data',
+            'message': str(e)
+        }), 500
+
+
