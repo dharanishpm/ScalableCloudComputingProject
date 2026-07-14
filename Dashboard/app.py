@@ -118,6 +118,3 @@ def api_live():
         return jsonify({
             'error': 'Failed to retrieve live data',
             'message': str(e)
-        }), 500
-
-
