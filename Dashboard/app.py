@@ -55,12 +55,6 @@ def health_check():
 
 @app.route('/')
 def index():
-    """
-    Render the main dashboard page
-    
-    Returns:
-        HTML: Rendered dashboard template
-    """
     logger.info("Dashboard page accessed")
     try:
         refresh_interval = getattr(app.config, 'REFRESH_INTERVAL', 5000)
@@ -72,10 +66,6 @@ def index():
 
 @app.route('/api/live')
 def api_live():
-    """
-    API endpoint for live/real-time data from DynamoDB
-    Returns fleet summary and current vehicle metrics
-    """
     try:
         logger.info("Live API called")
         
@@ -123,10 +113,6 @@ def api_live():
 
 @app.route('/api/batch')
 def api_batch():
-    """
-    API endpoint for batch/historical data from Athena
-    Returns aggregated historical vehicle data
-    """
     try:
         logger.info("Batch API called")
         
@@ -156,4 +142,30 @@ def api_batch():
             'message': str(e),
             'vehicles': [],
             'top5Historical': []
+        }), 500
+
+
+@app.route('/api/alerts')
+def api_alerts():
+    try:
+        logger.info("Alerts API called")
+        
+        if not dynamodb_helper:
+            return jsonify({
+                'alerts': [],
+                'message': 'Using mock data - DynamoDB not available'
+            }), 200
+        
+        # Get recent alerts from DynamoDB
+        alerts = dynamodb_helper.get_recent_alerts(limit=20)
+        
+        logger.info(f"Alerts retrieved: {len(alerts)} alerts")
+        return jsonify({'alerts': alerts}), 200
+        
+    except Exception as e:
+        logger.error(f"Error in alerts API: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve alerts',
+            'message': str(e),
+            'alerts': []
         }), 500
