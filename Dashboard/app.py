@@ -145,27 +145,4 @@ def api_batch():
         }), 500
 
 
-@app.route('/api/alerts')
-def api_alerts():
-    try:
-        logger.info("Alerts API called")
-        
-        if not dynamodb_helper:
-            return jsonify({
-                'alerts': [],
-                'message': 'Using mock data - DynamoDB not available'
-            }), 200
-        
-        # Get recent alerts from DynamoDB
-        alerts = dynamodb_helper.get_recent_alerts(limit=20)
-        
-        logger.info(f"Alerts retrieved: {len(alerts)} alerts")
-        return jsonify({'alerts': alerts}), 200
-        
-    except Exception as e:
-        logger.error(f"Error in alerts API: {str(e)}")
-        return jsonify({
-            'error': 'Failed to retrieve alerts',
-            'message': str(e),
-            'alerts': []
-        }), 500
+
