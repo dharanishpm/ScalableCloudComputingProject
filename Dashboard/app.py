@@ -118,3 +118,42 @@ def api_live():
         return jsonify({
             'error': 'Failed to retrieve live data',
             'message': str(e)
+        }), 500
+
+
+@app.route('/api/batch')
+def api_batch():
+    """
+    API endpoint for batch/historical data from Athena
+    Returns aggregated historical vehicle data
+    """
+    try:
+        logger.info("Batch API called")
+        
+        if not athena_helper:
+            return jsonify({
+                'vehicles': [],
+                'top5Historical': [],
+                'message': 'Using mock data - Athena not available'
+            }), 200
+        
+        # Get batch layer data from Athena
+        batch_data = athena_helper.get_all_batch_data()
+        top5_historical = athena_helper.get_top_vehicles_by_speed(limit=5)
+        
+        response_data = {
+            'vehicles': batch_data,
+            'top5Historical': top5_historical
+        }
+        
+        logger.info(f"Batch data retrieved: {len(batch_data)} vehicles")
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error in batch API: {str(e)}")
+        return jsonify({
+            'error': 'Failed to retrieve batch data',
+            'message': str(e),
+            'vehicles': [],
+            'top5Historical': []
+        }), 500
